@@ -38,6 +38,8 @@ export default function RequestTransportPage() {
   const [monitorData, setMonitorData] = useState<any>(null)
   const [allRequests, setAllRequests] = useState<any[]>([])
 
+  const [bookingPhone, setBookingPhone] = useState('')
+
   // Rebook state
   const [rebookLoading, setRebookLoading] = useState(false)
   const [rebookSlots, setRebookSlots] = useState<any[]>([])
@@ -66,7 +68,7 @@ export default function RequestTransportPage() {
     setLoading(true)
     setAppointments([])
     try {
-      const res = await fetch(`/api/transport/requests?search=${cleanedIC}`)
+      const res = await fetch(`/api/transport/requests?search=${encodeURIComponent(cleanedIC)}`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
 
@@ -104,6 +106,7 @@ export default function RequestTransportPage() {
   // --- Book Transport from Appointment ---
   const handleStartBooking = async (apt: any) => {
     setSelectedAppointment(apt)
+    setBookingPhone(apt.patientPhone || '')
     setRebookServiceType('pickup')
     setSelectedStation('')
     setSelectedDropStation('')
@@ -153,7 +156,7 @@ export default function RequestTransportPage() {
           ic_number: selectedAppointment.patientIC || icNumber,
           appointment_id: selectedAppointment.id,
           patient_name: selectedAppointment.patientName,
-          phone_number: selectedAppointment.patientPhone || '',
+          phone_number: bookingPhone || selectedAppointment.patientPhone || '',
           doctor_name: selectedAppointment.doctorName || '',
           service_type: rebookServiceType,
           appointment_date: selectedAppointment.appointmentDate,
@@ -173,7 +176,7 @@ export default function RequestTransportPage() {
 
       // Refresh — now transport request exists, go to MONITOR
       const cleanedSearch = icNumber.replace(/[-\s]/g, '').trim()
-      const refreshRes = await fetch(`/api/transport/requests?search=${cleanedSearch}`)
+      const refreshRes = await fetch(`/api/transport/requests?search=${encodeURIComponent(cleanedSearch)}`)
       const refreshJson = await refreshRes.json()
       const userRequests = refreshJson.data || []
       setAllRequests(userRequests)
@@ -236,7 +239,7 @@ export default function RequestTransportPage() {
     const source = monitorData || selectedAppointment
     if (!source || !stationName) return
     const date = source.appointment_date
-      ? new Date(source.appointment_date).toISOString().split('T')[0]
+      ? new Date(source.appointment_date).toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' })
       : source.appointmentDate || ''
     const aptTime = source.appointment_time || source.timeSlot || ''
     if (!date) return
@@ -324,7 +327,7 @@ export default function RequestTransportPage() {
 
       // Refresh the list
       const cleanedSearch = icNumber.replace(/[-\s]/g, '').trim()
-      const refreshRes = await fetch(`/api/transport/requests?search=${cleanedSearch}`)
+      const refreshRes = await fetch(`/api/transport/requests?search=${encodeURIComponent(cleanedSearch)}`)
       const refreshJson = await refreshRes.json()
       const userRequests = refreshJson.data || []
       setAllRequests(userRequests)
@@ -626,11 +629,16 @@ export default function RequestTransportPage() {
                        ))}
                      </select>
 
-                     {/* 2. Vehicle */}
+                     {/* 2. Vehicle — or no-slots message */}
                      {slotsLoading ? (
                        <div className="flex items-center justify-center py-8 text-slate-400">
                           <Loader2 className="w-5 h-5 animate-spin mr-3" />
                           <span className="text-[10px] font-black uppercase tracking-widest">Loading vehicles...</span>
+                       </div>
+                     ) : selectedStation && rebookSlots.length === 0 ? (
+                       <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-2xl">
+                          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+                          <p className="text-xs font-bold text-amber-700">No pickup slots are configured for this station on this date. Please contact the clinic or choose a different station.</p>
                        </div>
                      ) : rebookSlots.length > 0 && (() => {
                        const seen = new Set<string>();
@@ -741,11 +749,16 @@ export default function RequestTransportPage() {
                        ))}
                      </select>
 
-                     {/* 2. Vehicle */}
+                     {/* 2. Vehicle — or no-slots message */}
                      {slotsLoading ? (
                        <div className="flex items-center justify-center py-8 text-slate-400">
                           <Loader2 className="w-5 h-5 animate-spin mr-3" />
                           <span className="text-[10px] font-black uppercase tracking-widest">Loading vehicles...</span>
+                       </div>
+                     ) : selectedDropStation && dropSlots.length === 0 ? (
+                       <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-2xl">
+                          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+                          <p className="text-xs font-bold text-amber-700">No drop-off slots are configured for this station on this date. Please contact the clinic or choose a different station.</p>
                        </div>
                      ) : dropSlots.length > 0 && (() => {
                        const seen = new Set<string>();
@@ -866,6 +879,22 @@ export default function RequestTransportPage() {
                    </div>
                 </div>
 
+                {/* Optional phone input — shown only when appointment has no phone */}
+                {!selectedAppointment.patientPhone && (
+                  <div className="space-y-2">
+                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Contact Number <span className="text-slate-300">(optional)</span></Label>
+                     <div className="relative">
+                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                        <Input
+                          placeholder="e.g. 0123456789"
+                          className="h-12 pl-11 rounded-2xl bg-slate-50 border-none font-bold text-sm focus:ring-2 focus:ring-primary/20"
+                          value={bookingPhone}
+                          onChange={(e) => setBookingPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                        />
+                     </div>
+                  </div>
+                )}
+
                 {/* Service Type Selector */}
                 <div className="space-y-3">
                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Service Type</Label>
@@ -916,11 +945,16 @@ export default function RequestTransportPage() {
                        ))}
                      </select>
 
-                     {/* 2. Vehicle */}
+                     {/* 2. Vehicle — or no-slots message */}
                      {slotsLoading ? (
                        <div className="flex items-center justify-center py-8 text-slate-400">
                           <Loader2 className="w-5 h-5 animate-spin mr-3" />
                           <span className="text-[10px] font-black uppercase tracking-widest">Loading vehicles...</span>
+                       </div>
+                     ) : selectedStation && rebookSlots.length === 0 ? (
+                       <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-2xl">
+                          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+                          <p className="text-xs font-bold text-amber-700">No pickup slots are configured for this station on this date. Please contact the clinic or choose a different station.</p>
                        </div>
                      ) : rebookSlots.length > 0 && (() => {
                        const seen = new Set<string>();
@@ -1031,11 +1065,16 @@ export default function RequestTransportPage() {
                        ))}
                      </select>
 
-                     {/* 2. Vehicle */}
+                     {/* 2. Vehicle — or no-slots message */}
                      {slotsLoading ? (
                        <div className="flex items-center justify-center py-8 text-slate-400">
                           <Loader2 className="w-5 h-5 animate-spin mr-3" />
                           <span className="text-[10px] font-black uppercase tracking-widest">Loading vehicles...</span>
+                       </div>
+                     ) : selectedDropStation && dropSlots.length === 0 ? (
+                       <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-2xl">
+                          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+                          <p className="text-xs font-bold text-amber-700">No drop-off slots are configured for this station on this date. Please contact the clinic or choose a different station.</p>
                        </div>
                      ) : dropSlots.length > 0 && (() => {
                        const seen = new Set<string>();

@@ -19,10 +19,8 @@ export async function GET(request: NextRequest) {
     const filter: any = {};
 
     if (date) {
-      const startOfDay = new Date(date);
-      startOfDay.setUTCHours(0, 0, 0, 0);
-      const endOfDay = new Date(date);
-      endOfDay.setUTCHours(23, 59, 59, 999);
+      const startOfDay = new Date(date + 'T00:00:00+08:00');
+      const endOfDay = new Date(date + 'T23:59:59+08:00');
       filter.appointment_date = { $gte: startOfDay, $lte: endOfDay };
     }
 
@@ -67,6 +65,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('List transport requests error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch transport requests' }, { status: 500 });
   }
 }

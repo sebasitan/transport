@@ -25,6 +25,37 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Vehicle not found' }, { status: 404 });
     }
 
+    // Check seat availability for the assigned vehicle + time slot
+    const assignTime = pickup_time || transportRequest.pickup_time;
+    if (assignTime) {
+      const dateStart = new Date(transportRequest.appointment_date);
+      dateStart.setUTCHours(0, 0, 0, 0);
+      const dateEnd = new Date(transportRequest.appointment_date);
+      dateEnd.setUTCHours(23, 59, 59, 999);
+
+      const bookedAgg = await TransportRequest.aggregate([
+        {
+          $match: {
+            _id: { $ne: transportRequest._id },
+            vehicle_id: vehicle._id,
+            pickup_time: assignTime,
+            appointment_date: { $gte: dateStart, $lte: dateEnd },
+            status: { $in: ['pending', 'confirmed'] },
+          },
+        },
+        { $group: { _id: null, total: { $sum: { $ifNull: ['$seats', 1] } } } },
+      ]);
+
+      const alreadyBooked = bookedAgg[0]?.total || 0;
+      const requestSeats = transportRequest.seats || 1;
+      if (alreadyBooked + requestSeats > vehicle.seat_capacity) {
+        return NextResponse.json(
+          { error: `Vehicle is over capacity: ${alreadyBooked + requestSeats} seats needed, ${vehicle.seat_capacity} available` },
+          { status: 409 }
+        );
+      }
+    }
+
     // Update transport request
     transportRequest.vehicle_id = vehicle_id;
     if (pickup_time) transportRequest.pickup_time = pickup_time;
@@ -55,6 +86,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: true, data: transportRequest });
   } catch (error: any) {
     console.error('Assign vehicle error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to assign vehicle' }, { status: 500 });
   }
 }

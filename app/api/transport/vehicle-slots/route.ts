@@ -47,7 +47,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: slots });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Vehicle slots GET error:', error);
+    return NextResponse.json({ error: 'Failed to fetch vehicle slots' }, { status: 500 });
   }
 }
 
@@ -65,7 +66,8 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true, deletedCount: result.deletedCount });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Vehicle slots DELETE error:', error);
+    return NextResponse.json({ error: 'Failed to delete vehicle slots' }, { status: 500 });
   }
 }
 
@@ -107,7 +109,8 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ success: true, count: created.length });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Vehicle slots PUT error:', error);
+    return NextResponse.json({ error: 'Failed to copy vehicle slots' }, { status: 500 });
   }
 }
 
@@ -135,10 +138,14 @@ export async function POST(request: NextRequest) {
     const [eh, em] = end_time.split(':').map(Number);
     const startMin = sh * 60 + (sm || 0);
     const endMin = eh * 60 + (em || 0);
-    const interval = parseInt(interval_minutes) || 30;
+    const interval = Math.floor(parseFloat(String(interval_minutes)));
 
-    if (startMin >= endMin || interval < 1) {
-      return NextResponse.json({ error: 'Invalid time range or interval' }, { status: 400 });
+    if (!Number.isFinite(interval) || interval < 5 || interval > 480) {
+      return NextResponse.json({ error: 'Interval must be between 5 and 480 minutes' }, { status: 400 });
+    }
+
+    if (startMin >= endMin) {
+      return NextResponse.json({ error: 'start_time must be before end_time' }, { status: 400 });
     }
 
     const slotsToCreate: any[] = [];
@@ -172,7 +179,6 @@ export async function POST(request: NextRequest) {
 
       for (let m = startMin; m < endMin; m += interval) {
         // PICKUP slot — vehicle is at STATION at this time
-        // Meaning: Station → Hospital
         slotsToCreate.push({
           vehicle_id,
           station_name: pickup_station,
@@ -183,8 +189,8 @@ export async function POST(request: NextRequest) {
         });
 
         // DROP slot — vehicle arrives at HOSPITAL after travel
-        // Meaning: Hospital → Station (picks up patients going home)
         const dropTime = m + travelMin;
+        if (dropTime >= 24 * 60) continue; // skip slots that overflow past midnight
         slotsToCreate.push({
           vehicle_id,
           station_name: drop_station,
@@ -257,6 +263,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: created, count: created.length });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Vehicle slots POST error:', error);
+    return NextResponse.json({ error: 'Failed to create vehicle slots' }, { status: 500 });
   }
 }

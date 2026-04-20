@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'transport-portal-secret-key-change-in-production'
-);
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
 // Routes that require NO authentication (public)
 const PUBLIC_API_ROUTES = [
   '/api/auth/login',
   '/api/auth/seed',
+  '/api/auth/unlock-test',       // test-only account unlock (disabled in production by the route itself)
+  '/api/auth/sync-indexes-test', // test-only index sync (disabled in production by the route itself)
   '/api/driver/auth',
   // Patient-facing endpoints
   '/api/transport/check-appointment',

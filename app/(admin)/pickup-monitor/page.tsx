@@ -83,7 +83,11 @@ export default function PickupMonitorPage() {
   }
 
   useEffect(() => { fetchVehicles() }, [])
-  useEffect(() => { fetchRequests(selectedDate) }, [selectedDate])
+  useEffect(() => {
+    fetchRequests(selectedDate)
+    const interval = setInterval(() => fetchRequests(selectedDate), 30000)
+    return () => clearInterval(interval)
+  }, [selectedDate])
 
   const changeDate = (offset: number) => {
     const d = new Date(selectedDate)

@@ -27,11 +27,32 @@ export async function POST(request: NextRequest) {
       transport_required,
     } = body;
 
-    if (!ic_number || !patient_name || !phone_number || !appointment_date) {
+    if (!ic_number || !patient_name || !appointment_date) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
+    }
+
+    // Validate seats (explicit parse — do NOT use || 1 which makes 0 pass as 1)
+    const seatCount = seats !== undefined && seats !== null ? Number(seats) : 1;
+    if (!Number.isInteger(seatCount) || seatCount < 1 || seatCount > 20) {
+      return NextResponse.json({ error: 'Seats must be between 1 and 20' }, { status: 400 });
+    }
+
+    // Validate IC number format (10–12 digits)
+    const cleanedICRaw = ic_number.replace(/[-\s]/g, '').trim();
+    if (!/^[0-9]{10,12}$/.test(cleanedICRaw)) {
+      return NextResponse.json({ error: 'Invalid IC number format (10–12 digits required)' }, { status: 400 });
+    }
+
+    // Strip all non-digit chars; if result isn't 10–11 digits, discard silently (don't block booking)
+    const digitsOnly = phone_number ? phone_number.replace(/\D/g, '') : '';
+    const cleanedPhone = /^[0-9]{10,11}$/.test(digitsOnly) ? digitsOnly : '';
+
+    // Validate appointment date
+    if (!appointment_date || isNaN(Date.parse(appointment_date))) {
+      return NextResponse.json({ error: 'Invalid appointment date' }, { status: 400 });
     }
 
     // Validate service-specific fields
@@ -49,9 +70,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if a transport request already exists for this IC + date + service_type (prevent duplicates)
-    const cleanedIC = ic_number.replace(/[-\s]/g, '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const dateStart = new Date(appointment_date + 'T00:00:00.000Z');
-    const dateEnd = new Date(appointment_date + 'T23:59:59.999Z');
+    const cleanedIC = cleanedICRaw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const dateStart = new Date(appointment_date + 'T00:00:00+08:00');
+    const dateEnd = new Date(appointment_date + 'T23:59:59+08:00');
 
     const duplicateFilter: any = {
       ic_number: { $regex: new RegExp(`^${cleanedIC}$`, 'i') },
@@ -93,7 +114,7 @@ export async function POST(request: NextRequest) {
       ic_number: cleanedIC,
       appointment_id,
       patient_name,
-      phone_number,
+      phone_number: cleanedPhone,
       doctor_name,
       service_type,
       pickup_station: (service_type === 'pickup' || service_type === 'both') ? pickup_station : undefined,
@@ -104,14 +125,18 @@ export async function POST(request: NextRequest) {
       dropoff_time: (service_type === 'drop' || service_type === 'both') ? dropoff_time : undefined,
       vehicle_id: (service_type === 'pickup' || service_type === 'both') ? vehicle_id : undefined,
       dropoff_vehicle_id: (service_type === 'drop' || service_type === 'both') ? dropoff_vehicle_id : undefined,
-      seats: seats || 1,
+      seats: seatCount,
       transport_required: transport_required ?? true,
       status: 'pending',
     });
 
     return NextResponse.json({ success: true, data: transportRequest }, { status: 201 });
   } catch (error: any) {
+    // MongoDB duplicate key — race condition caught at DB level
+    if (error.code === 11000) {
+      return NextResponse.json({ error: 'A transport request for this date already exists' }, { status: 409 });
+    }
     console.error('Create transport request error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create transport request' }, { status: 500 });
   }
 }

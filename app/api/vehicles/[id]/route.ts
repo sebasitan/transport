@@ -2,6 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import mongoose from "mongoose";
 
+export async function GET(_request: NextRequest, { params }: { params: any }) {
+  try {
+    await dbConnect();
+    const { id } = await params;
+    const db = mongoose.connection.db;
+    if (!db) return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
+
+    let objectId: mongoose.Types.ObjectId;
+    try {
+      objectId = new mongoose.Types.ObjectId(id);
+    } catch {
+      return NextResponse.json({ error: 'Invalid vehicle ID' }, { status: 400 });
+    }
+
+    const vehicle = await db.collection('vehicles').findOne({ _id: objectId });
+    if (!vehicle) return NextResponse.json({ error: 'Vehicle not found' }, { status: 404 });
+
+    return NextResponse.json({ data: vehicle });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
 export async function PUT(request: NextRequest, { params }: { params: any }) {
   try {
     await dbConnect();

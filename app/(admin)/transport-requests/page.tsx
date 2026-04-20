@@ -163,9 +163,10 @@ export default function TransportRequestsPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
-              const d = new Date(selectedDateFilter)
+              const base = selectedDateFilter || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' })
+              const d = new Date(base + 'T12:00:00')
               d.setDate(d.getDate() - 1)
-              setSelectedDateFilter(d.toISOString().split('T')[0])
+              setSelectedDateFilter(d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' }))
             }}
             className="w-9 h-9 rounded-xl bg-slate-50 flex items-center justify-center hover:bg-slate-100 transition-colors shrink-0"
           >
@@ -182,9 +183,10 @@ export default function TransportRequestsPage() {
           </div>
           <button
             onClick={() => {
-              const d = new Date(selectedDateFilter)
+              const base = selectedDateFilter || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' })
+              const d = new Date(base + 'T12:00:00')
               d.setDate(d.getDate() + 1)
-              setSelectedDateFilter(d.toISOString().split('T')[0])
+              setSelectedDateFilter(d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' }))
             }}
             className="w-9 h-9 rounded-xl bg-slate-50 flex items-center justify-center hover:bg-slate-100 transition-colors shrink-0"
           >

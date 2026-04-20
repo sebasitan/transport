@@ -37,6 +37,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { _id, ...data } = body;
 
+    // Validate required fields
+    if (!data.vehicle_name || !data.vehicle_number || !data.vehicle_type || !data.seat_capacity) {
+      return NextResponse.json(
+        { error: 'vehicle_name, vehicle_number, vehicle_type, and seat_capacity are required' },
+        { status: 400 }
+      );
+    }
+
     // Check for duplicate plate
     const existing = await db.collection('vehicles').findOne({ vehicle_number: data.vehicle_number });
     if (existing) {

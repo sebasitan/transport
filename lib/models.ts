@@ -43,10 +43,21 @@ export const Admin = models.Admin || model('Admin', AdminSchema);
 
 // ============ TRANSPORT REQUESTS ============
 const TransportRequestSchema = new Schema({
-  ic_number: { type: String, required: true },
+  ic_number: {
+    type: String, required: true,
+    minlength: [10, 'IC must be at least 10 digits'],
+    maxlength: [12, 'IC must be at most 12 digits'],
+    match: [/^[0-9]+$/, 'IC must be numeric'],
+  },
   appointment_id: { type: String },
-  patient_name: { type: String, required: true },
-  phone_number: { type: String, required: true },
+  patient_name: { type: String, required: true, maxlength: [200, 'Name too long'] },
+  phone_number: {
+    type: String, default: '',
+    validate: {
+      validator: (v: string) => !v || /^[0-9]{10,11}$/.test(v.replace(/\D/g, '')),
+      message: 'Phone must be 10–11 digits',
+    },
+  },
   doctor_name: { type: String },
   service_type: {
     type: String,
@@ -56,10 +67,16 @@ const TransportRequestSchema = new Schema({
   pickup_station: { type: String },
   appointment_date: { type: Date, required: true },
   appointment_time: { type: String },
-  pickup_time: { type: String },
+  pickup_time: {
+    type: String,
+    match: [/^([01]\d|2[0-3]):[0-5]\d$/, 'pickup_time must be HH:MM'],
+  },
   dropoff_station: { type: String },
-  dropoff_time: { type: String },
-  seats: { type: Number, default: 1 },
+  dropoff_time: {
+    type: String,
+    match: [/^([01]\d|2[0-3]):[0-5]\d$/, 'dropoff_time must be HH:MM'],
+  },
+  seats: { type: Number, default: 1, min: [1, 'Min 1 seat'], max: [20, 'Max 20 seats'] },
   vehicle_id: { type: Schema.Types.ObjectId, ref: 'Vehicle' },
   dropoff_vehicle_id: { type: Schema.Types.ObjectId, ref: 'Vehicle' },
   status: {
@@ -84,8 +101,18 @@ const TransportRequestSchema = new Schema({
 
 TransportRequestSchema.index({ appointment_date: 1, status: 1 });
 TransportRequestSchema.index({ ic_number: 1 });
+// Compound unique index prevents duplicate requests at DB level (TOCTOU race guard)
+TransportRequestSchema.index(
+  { ic_number: 1, appointment_date: 1, service_type: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: { $in: ['pending', 'confirmed', 'completed'] } },
+  }
+);
 
-export const TransportRequest = models.TransportRequest || model('TransportRequest', TransportRequestSchema);
+// Delete cached model so the new compound unique index is applied on every hot-reload
+if (models.TransportRequest) delete (models as any).TransportRequest;
+export const TransportRequest = model('TransportRequest', TransportRequestSchema);
 
 // ============ VEHICLES ============
 const VehicleSchema = new Schema({

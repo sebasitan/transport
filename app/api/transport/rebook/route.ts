@@ -46,8 +46,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Create new request with updated details
+    // 3. Check for an existing active request with the same IC + date + service_type
     const newServiceType = service_type || oldRequest.service_type;
+    const dateStart = new Date(oldRequest.appointment_date);
+    dateStart.setUTCHours(0, 0, 0, 0);
+    const dateEnd = new Date(oldRequest.appointment_date);
+    dateEnd.setUTCHours(23, 59, 59, 999);
+
+    const duplicateCheck = await TransportRequest.findOne({
+      _id: { $ne: old_request_id },
+      ic_number: oldRequest.ic_number,
+      appointment_date: { $gte: dateStart, $lte: dateEnd },
+      service_type: newServiceType,
+      status: { $in: ['pending', 'confirmed'] },
+    });
+
+    if (duplicateCheck) {
+      return NextResponse.json(
+        { error: 'An active transport request already exists for this date' },
+        { status: 409 }
+      );
+    }
 
     const newRequest = await TransportRequest.create({
       ic_number: oldRequest.ic_number,
@@ -92,7 +111,10 @@ export async function POST(request: NextRequest) {
       data: populated,
     }, { status: 201 });
   } catch (error: any) {
+    if (error.code === 11000) {
+      return NextResponse.json({ error: 'A transport request for this date already exists' }, { status: 409 });
+    }
     console.error('Rebook transport error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to rebook transport' }, { status: 500 });
   }
 }

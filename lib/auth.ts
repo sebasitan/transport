@@ -1,9 +1,11 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { NextRequest, NextResponse } from 'next/server';
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'transport-portal-secret-key-change-in-production'
-);
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
 const TOKEN_EXPIRY = '24h';
 

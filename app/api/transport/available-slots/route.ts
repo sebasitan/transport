@@ -78,6 +78,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'date parameter is required' }, { status: 400 });
     }
 
+    // Drop-off requests MUST supply appointment_time (validate before any DB work)
+    if (serviceType === 'drop' && !appointmentTime) {
+      return NextResponse.json(
+        { error: 'appointment_time is required for drop-off requests' },
+        { status: 400 }
+      );
+    }
+
     // 1. Load settings
     const settingsCollection = TransportSettings.db.collection('transport_settings');
     let settings: any = await settingsCollection.findOne({});
@@ -105,7 +113,9 @@ export async function GET(request: NextRequest) {
       type: serviceType,
     };
     if (station) {
-      slotFilter.station_name = station;
+      // Case-insensitive match so "LRT Sri Rampai" and "LRT SRI RAMPAI" both work
+      const escaped = station.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      slotFilter.station_name = { $regex: new RegExp(`^${escaped}$`, 'i') };
     }
     const allScheduleSlots = await VehicleScheduleSlot.find(slotFilter)
       .populate('vehicle_id').lean();
@@ -203,8 +213,17 @@ export async function GET(request: NextRequest) {
     let filteredSlots = allSlotTimes;
     let recommendedTime = '';
 
+    // Drop-off requests MUST supply appointment_time to calculate earliest drop slot
+    if (serviceType === 'drop' && !appointmentTime) {
+      return NextResponse.json(
+        { error: 'appointment_time is required for drop-off requests' },
+        { status: 400 }
+      );
+    }
+
     if (appointmentTime) {
       const parsedAptMinutes = parseAppointmentTime(appointmentTime);
+
       const aptMinutes = parsedAptMinutes ?? timeToMinutes(settings.end_time);
 
       if (serviceType === 'drop') {
@@ -267,8 +286,8 @@ export async function GET(request: NextRequest) {
     }
 
     // 5. Count booked seats per slot per vehicle for this date
-    const dateStart = new Date(date + 'T00:00:00.000Z');
-    const dateEnd = new Date(date + 'T23:59:59.999Z');
+    const dateStart = new Date(date + 'T00:00:00+08:00');
+    const dateEnd = new Date(date + 'T23:59:59+08:00');
 
     const timeFieldName = serviceType === 'drop' ? 'dropoff_time' : 'pickup_time';
     const timeField = serviceType === 'drop' ? '$dropoff_time' : '$pickup_time';
@@ -406,6 +425,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('Available slots error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch available slots' }, { status: 500 });
   }
 }
