@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
-import fs from "fs/promises";
+import { put } from "@vercel/blob";
 
 const ALLOWED_FOLDERS = ['drivers', 'vehicles', 'uploads'];
 const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
@@ -16,8 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate folder (prevent path traversal)
-    const cleanFolder = path.basename(folder);
-    if (!ALLOWED_FOLDERS.includes(cleanFolder)) {
+    if (!ALLOWED_FOLDERS.includes(folder)) {
       return NextResponse.json({ error: "Invalid upload folder" }, { status: 400 });
     }
 
@@ -27,19 +25,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `File type .${ext} not allowed. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}` }, { status: 400 });
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const filename = `uploads/${folder}/upload-${Date.now()}.${ext}`;
+    const blob = await put(filename, file, { access: "public" });
 
-    const filename = `upload-${Date.now()}.${ext}`;
-    const uploadDir = path.join(process.cwd(), "public", "uploads", cleanFolder);
-
-    await fs.mkdir(uploadDir, { recursive: true });
-
-    const filePath = path.join(uploadDir, filename);
-    await fs.writeFile(filePath, buffer);
-
-    const url = `/uploads/${cleanFolder}/${filename}`;
-    return NextResponse.json({ url });
+    return NextResponse.json({ url: blob.url });
   } catch (error: any) {
     console.error("Upload error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
