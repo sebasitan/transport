@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { useAdminAuth } from '@/hooks/use-admin-auth'
-import { Lock, User, Bus, Settings2, Loader2 } from 'lucide-react'
+import { Lock, User, Bus, Settings2, Loader2, Eye, EyeOff } from 'lucide-react'
 import { adminFetch } from '@/lib/api-client'
 
 interface SlotOverride {
@@ -45,6 +45,9 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [savingPassword, setSavingPassword] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   // Transport settings
   const [transportSettings, setTransportSettings] = useState<TransportSettingsType>({
@@ -384,15 +387,30 @@ export default function SettingsPage() {
           <form onSubmit={handleChangePassword} className="space-y-6 max-w-md">
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Current Password</Label>
-              <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required className="h-14 rounded-2xl bg-slate-50 border-none font-bold" />
+              <div className="relative">
+                <Input type={showCurrentPassword ? 'text' : 'password'} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required className="h-14 rounded-2xl bg-slate-50 border-none font-bold pr-12" />
+                <button type="button" onClick={() => setShowCurrentPassword(v => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">New Password</Label>
-              <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required className="h-14 rounded-2xl bg-slate-50 border-none font-bold" />
+              <div className="relative">
+                <Input type={showNewPassword ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required className="h-14 rounded-2xl bg-slate-50 border-none font-bold pr-12" />
+                <button type="button" onClick={() => setShowNewPassword(v => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Confirm New Password</Label>
-              <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required className="h-14 rounded-2xl bg-slate-50 border-none font-bold" />
+              <div className="relative">
+                <Input type={showConfirmPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required className="h-14 rounded-2xl bg-slate-50 border-none font-bold pr-12" />
+                <button type="button" onClick={() => setShowConfirmPassword(v => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <Button
               type="submit"
