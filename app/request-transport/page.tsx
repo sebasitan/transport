@@ -74,10 +74,15 @@ export default function RequestTransportPage() {
 
       const userRequests = json.data || []
       if (userRequests.length > 0) {
-        setAllRequests(userRequests)
-        setMonitorData(userRequests[0])
-        setStep('MONITOR')
-        return
+        const todayStart = new Date()
+        todayStart.setHours(0, 0, 0, 0)
+        const upcomingRequests = userRequests.filter((r: any) => new Date(r.appointment_date) >= todayStart)
+        if (upcomingRequests.length > 0) {
+          setAllRequests(upcomingRequests)
+          setMonitorData(upcomingRequests[0])
+          setStep('MONITOR')
+          return
+        }
       }
 
       // No transport requests found — check appointments collection
